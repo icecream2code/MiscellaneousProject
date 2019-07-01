@@ -1,0 +1,351 @@
+<html>
+<head>
+    <title>Tetris Game</title>
+</head>
+<body>
+    <canvas id="canvas" width="400" height="800"></canvas>
+    <script>
+    var canvas = document.getElementById('canvas');
+    var ctx = canvas.getContext('2d');
+    
+    var tickRepeater = null;
+    var tickDrawer = null;
+    
+    /*
+     * block size(width, height)
+     */
+    var bw = 40;
+    var bh = 40;
+    
+    /*
+     *
+     */
+    var centerX = 4;
+    
+    /*
+     *┌─┬─┐
+     *│0│4│
+     *├─┼─┤
+     *│1│5│
+     *├─┼─┤
+     *│2│6│
+     *├─┼─┤
+     *│3│7│
+     *└─┴─┘
+     */
+    /*
+     * 회전시킬 경우 기준좌표를 가져오는 배열순서가 틀리는 문제가 발생. -> 8개 위치값에서 4개의 좌표로 변경
+    var blockFigures = [[
+        1,1,1,1,0,0,0,0 // I
+    ],[
+        1,1,1,0,0,0,1,0 // L
+    ],[
+        1,1,1,0,0,1,0,0 // T
+    ],[
+        1,1,0,0,0,1,1,0 // S
+    ],[
+        1,1,0,0,1,1,0,0 // O
+    ],[
+        0,1,1,0,1,1,0,0 // Z
+    ],[
+        0,0,1,0,1,1,1,0 // J
+    ]];
+     */
+    var blockFigures = [[
+        0,1,2,3 // I
+    ],[
+        0,1,2,6 // L
+    ],[
+        0,1,2,5 // T
+    ],[
+        0,1,5,6 // S
+    ],[
+        0,1,4,5 // O
+    ],[
+        2,1,4,5 // Z
+    ],[
+        4,5,2,6 // J
+    ]];
+    
+    /*
+     * information of current block : location(x, y)
+     */
+    /*
+     * 8개 좌표를 모두 사용할 경우 회전시 x, y 좌표의 정합성 판단에 문제가 발생. -> 해당 블럭의 좌표정보만를 갖도록 변경.
+     */
+    var currentBlock = [];
+    
+    var centerPosition = 1;
+    
+    /*
+     * 그리드에 현재 사용중인 블럭의 정보까지 넣을 경우 블럭이 움직이면 해당 블럭 정보를 찾아 지워야 하는 문제가 발생한다. -> 현재 사용중인 블럭은 별도의 변수에 저장하고, 해당 변수의 정보로 그린다.
+     */
+    /*
+     * 블럭이 있는 좌표값만 가지고 있는 경우, 라인이 완성되었을 때를 확인하기 어렵다. -> 그리드 전체의 블럭 위치를 저장한다.
+     */
+    var grid = [[
+        0,0,0,0,0,0,0,0,0,0
+    ],[
+        0,0,0,0,0,0,0,0,0,0
+    ],[
+        0,0,0,0,0,0,0,0,0,0
+    ],[
+        0,0,0,0,0,0,0,0,0,0
+    ],[
+        0,0,0,0,0,0,0,0,0,0
+    ],[
+        0,0,0,0,0,0,0,0,0,0
+    ],[
+        0,0,0,0,0,0,0,0,0,0
+    ],[
+        0,0,0,0,0,0,0,0,0,0
+    ],[
+        0,0,0,0,0,0,0,0,0,0
+    ],[
+        0,0,0,0,0,0,0,0,0,0
+    ],[
+        0,0,0,0,0,0,0,0,0,0
+    ],[
+        0,0,0,0,0,0,0,0,0,0
+    ],[
+        0,0,0,0,0,0,0,0,0,0
+    ],[
+        0,0,0,0,0,0,0,0,0,0
+    ],[
+        0,0,0,0,0,0,0,0,0,0
+    ],[
+        0,0,0,0,0,0,0,0,0,0
+    ],[
+        0,0,0,0,0,0,0,0,0,0
+    ],[
+        0,0,0,0,0,0,0,0,0,0
+    ],[
+        0,0,0,0,0,0,0,0,0,0
+    ],[
+        0,0,0,0,0,0,0,0,0,0
+    ]];
+    
+    var stopGame = function() {
+        clearInterval(tickRepeater);
+        clearInterval(tickDrawer);
+    };
+    
+    var getNewBlock = function() {
+        var blockType = Math.floor(Math.random() * 7);
+        var newBlock = blockFigures[blockType];
+        for (var i = 0; i < 4; i++) {
+            if (newBlock[i] === 0) {
+                currentBlock.push({'x' : centerX + 0, 'y' : 0});
+            } else if (newBlock[i] === 1) {
+                currentBlock.push({'x' : centerX + 0, 'y' : 1});
+            } else if (newBlock[i] === 2) {
+                currentBlock.push({'x' : centerX + 0, 'y' : 2});
+            } else if (newBlock[i] === 3) {
+                currentBlock.push({'x' : centerX + 0, 'y' : 3});
+            } else if (newBlock[i] === 4) {
+                currentBlock.push({'x' : centerX + 1, 'y' : 0});
+            } else if (newBlock[i] === 5) {
+                currentBlock.push({'x' : centerX + 1, 'y' : 1});
+            } else if (newBlock[i] === 6) {
+                currentBlock.push({'x' : centerX + 1, 'y' : 2});
+            } else if (newBlock[i] === 7) {
+                currentBlock.push({'x' : centerX + 1, 'y' : 3});
+            }
+        }
+        
+        var isEnd;
+        for (var i = 0; i < 4; i++) {
+            if (!isValidCoordinate(currentBlock[i].x, currentBlock[i].y)) {
+                isEnd = true;
+            }
+        }
+        
+        if (isEnd) {
+            currentBlock = [];
+            stopGame();
+        };
+    };
+    
+    var drawCurrentBlock = function() {
+        if (currentBlock.length === 0) {
+            return;
+        }
+        
+        for (var i = 0; i < 4; i++) {
+            ctx.fillStyle = 'green';
+            ctx.fillRect(currentBlock[i].x * bw, currentBlock[i].y * bh, bw, bh);
+        }
+    };
+    
+    var drawField = function() {
+        for (var y = 0 ; y < 20; y++) {
+            for (var x = 0; x < 10; x++) {
+                if (grid[y][x] === 1) {
+                    ctx.fillStyle = 'green';
+                    ctx.fillRect(x * bw, y * bh, bw, bh);
+                }
+            }
+        }
+    };
+    
+    var isValidCoordinate = function(x, y) {
+        if (x < 0) {
+            return false;
+        } else if (x > 9) {
+            return false;
+        } else if (y > 19) {
+            return false;
+        } else if (grid[y][x] === 1) {
+            return false;
+        }
+        return true;
+    };
+    
+    /*
+     * 좌표의 유효성과 마지막 라인 검사를 동시에 진행해야 함.
+    var isEndLine = function(x, y) {
+        if (y > 19) {
+            return true;
+        } else if (grid[y][x] === 1) {
+            return true;
+        } else {
+            return false;
+        }
+    };
+     */
+    
+    var pushKeyboard = function(event) {
+        var direction = 0;
+        var down = 0;
+        var rotateFlag = false;
+        switch(event.keyCode) {
+            case 37:
+                // left
+                direction = -1;
+                break;
+            case 38:
+                // rotate
+                rotateFlag = true;
+                break;
+            case 39:
+                // right
+                direction = 1;
+                break;
+            case 40:
+                // down
+                down = 1;
+                break;
+        }
+        
+        var tempBlock = JSON.parse(JSON.stringify(currentBlock));
+        if (direction !== 0) {
+            for (var i = 0; i < 4; i++) {
+                currentBlock[i].x += direction;
+                
+                if (!isValidCoordinate(currentBlock[i].x, currentBlock[i].y)) {
+                    currentBlock = tempBlock;
+                    return;
+                }
+            }
+        }
+        
+        if (down !== 0) {
+            for (var i = 0; i < 4; i++) {
+                currentBlock[i].y += down;
+                
+                if (!isValidCoordinate(currentBlock[i].x, currentBlock[i].y)) {
+                    currentBlock[i].y += down;
+                    currentBlock = tempBlock;
+                    return;
+                }
+            }
+        }
+        
+        if (rotateFlag) {
+            var centetX = currentBlock[centerPosition].x;
+            var centetY = currentBlock[centerPosition].y;
+            
+            // X and Y move to 0, 0
+            for (var i = 0; i < 4; i ++) {
+                var y = currentBlock[i].x - centetX;
+                var x = currentBlock[i].y - centetY;
+                
+                // clockwise rotation
+                currentBlock[i].x = (-1) * x + centetX;
+                currentBlock[i].y = y + centetY;
+                
+                // counterclockwise rotation
+                /*
+                block[i].x = x + centetX;
+                block[i].y = (-1) * y + centetY;
+                */
+                
+                if (!isValidCoordinate(currentBlock[i].x, currentBlock[i].y)) {
+                    currentBlock = tempBlock;
+                    return;
+                }
+            }
+        }
+    };
+    
+    var tickCurrentBlock = function() {
+        if (currentBlock.length === 0) {
+            getNewBlock();
+            return;
+        }
+        
+        var tempBlock = JSON.parse(JSON.stringify(currentBlock));
+        var isNotMove = false;
+        for (var i = 0; i < 4; i++) {
+            currentBlock[i].y += 1;
+            
+            if (!isValidCoordinate(currentBlock[i].x, currentBlock[i].y)) {
+            	isNotMove = true;
+            }
+        }
+        
+        if (isNotMove) {
+            currentBlock = tempBlock;
+            for (var i = 0; i < 4; i++) {
+                grid[currentBlock[i].y][currentBlock[i].x] = 1;
+              }
+            currentBlock = [];
+            getNewBlock();
+        };
+        removeLine();
+    };
+    
+    var removeLine = function() {
+        var endLine = 19;
+        for (var y = 19; y > -1; y--) {
+            for (var x = 0; x < 10; x++) {
+                grid[endLine][x] = grid[y][x];
+            }
+            var lineFillCount = 0;
+            for (var x = 0; x < 10; x++) {
+                if (grid[y][x] === 1) {
+                    ++lineFillCount;
+                }
+            }
+            if (lineFillCount !== 10) {
+                --endLine;
+            }
+        }
+    };
+    
+    var renewCanvas = function() {
+        // draw canvas background
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // draw current block
+        drawCurrentBlock();
+        drawField();
+    };
+    
+    document.addEventListener('keydown', pushKeyboard);
+    tickDrawer = setInterval(renewCanvas, 100);
+    tickRepeater = setInterval(tickCurrentBlock, 1000);
+    </script>
+</body>
+</html>
